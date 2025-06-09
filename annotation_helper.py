@@ -59,8 +59,19 @@ def multiple_objects_bounding_box(mask, do_cvt):
     # list to store the bounding boxes
     bounding_boxes = []
 
+    # If required, convert the components to a list
+    if not isinstance(components, list):
+        components = list(components)
+
     # iterating over all the connected components
-    for label, component in components.items():
+    for el in components:
+        # If there is any class_id information, extract it
+        if len(el) == 2:
+            label, component = el
+        else:
+            class_id, label, component = el
+
+        # Detect the contour
         contours, _ = cv2.findContours(
             component, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 
@@ -71,7 +82,7 @@ def multiple_objects_bounding_box(mask, do_cvt):
         x, y, w, h = cv2.boundingRect(contours[0])
         bounding_box = (x, y, w, h)
         # appending the bounding box to the list
-        bounding_boxes.append(bounding_box)
+        bounding_boxes.append((class_id, bounding_box))
     return bounding_boxes
 
 
@@ -304,7 +315,7 @@ def component_labelling(image, dynamic_threshold_factor=0.0003):
 
                 # plt.imshow(eroded_mask, cmap='gray')
                 # plt.show()
-    else:  # binary mask
+    elif set(np.unique(image)) == {0, 255}:  # binary mask
         components = {}
 
         # finding the components in the binary image
@@ -316,7 +327,12 @@ def component_labelling(image, dynamic_threshold_factor=0.0003):
             component_mask = np.zeros(image.shape, dtype=np.uint8)
             component_mask[labels == label] = 255
 
-            binary_mask = component_mask[:, :, 0]
+            # If 3 channels are present for some reason, extract the first one
+            if len(component_mask.shape) == 3:
+                binary_mask = component_mask[:, :, 0]
+            else:
+                binary_mask = component_mask
+
             # increasing standard deviation to blur more (repairing the mask)
             blurred_mask = cv2.GaussianBlur(
                 binary_mask, (7, 7), sigmaX=1, sigmaY=1)
@@ -327,6 +343,40 @@ def component_labelling(image, dynamic_threshold_factor=0.0003):
             eroded_mask = cv2.erode(blurred_mask, kernel, iterations=1)
 
             components[label] = eroded_mask
+    
+    else: # Grayscale dense-encoded segmentation mask
+        # Components contain different classes which need to keep their labeling
+        components = []
+
+        # Detect present classes, excluding class 0 (background)
+        classes = np.unique(image)
+        classes = np.delete(classes, classes == 0)
+
+        # Detect components for each class separately
+        for class_id in classes:
+            # Create a mask for the selected class
+            class_mask = (image == class_id) * np.uint8(255)
+
+            # Find the components for this class
+            num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(
+                class_mask, connectivity=8)
+
+            for label in range(1, num_labels):
+                # creating a mask for the selected component
+                component_mask = np.zeros(image.shape, dtype=np.uint8)
+                component_mask[labels == label] = 255
+
+                # increasing standard deviation to blur more (repairing the mask)
+                blurred_mask = cv2.GaussianBlur(
+                    component_mask, (7, 7), sigmaX=1, sigmaY=1)
+
+                # applying dilation (optional) and erosion to the mask
+                kernel = np.ones((3, 3), np.uint8)
+                # dilated_mask = cv2.dilate(mask, dilation_kernel, iterations=1)
+                eroded_mask = cv2.erode(blurred_mask, kernel, iterations=1)
+
+                components.append([class_id, label, eroded_mask])
+
 
     print('\033[94m', "\n Number of objects detected: ",
           len(components), '\033[0m')
