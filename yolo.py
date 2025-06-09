@@ -32,12 +32,9 @@ def save(im_dict):
     if not os.path.exists(im_dict['directory']):
         os.makedirs(im_dict['directory'])
 
-    if not os.path.exists(im_dict['directory']+"/"+im_dict['file_name']):
-        os.makedirs(im_dict['directory']+"/"+im_dict['file_name'])
-
     # saving the annotation in YOLO text file format
     file_path = os.path.join(
-        "./"+im_dict['directory']+"/"+im_dict['file_name'], str(im_dict['file_name']) + '.txt')
+        "./"+im_dict['directory'], str(im_dict['file_name']) + '.txt')
 
     with open(file_path, 'w') as f:
         for count, el in enumerate(im_dict['contours']):
@@ -76,8 +73,6 @@ def annotate(im, do_display=True, do_save=True, annotation_color=(0, 255, 0), ob
     # retrieving parameters from the tuple
     id_, name, image, project_name, category, directory = im
 
-    print("\n Annotating image: ", name)
-
     # creating a dictionary to store the image and its annotations
     im_dict = {}
     im_dict['file_name'] = os.path.splitext(name)[0]
@@ -93,8 +88,6 @@ def annotate(im, do_display=True, do_save=True, annotation_color=(0, 255, 0), ob
 
     if do_save:
         save(im_dict)
-        print('\033[92m', "Succesfully saved image: ", name, '\033[0m\n\n')
-    print("-"*120)
 
     return im_dict
 

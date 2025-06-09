@@ -377,9 +377,6 @@ def component_labelling(image, dynamic_threshold_factor=0.0003):
 
                 components.append([class_id, label, eroded_mask])
 
-
-    print('\033[94m', "\n Number of objects detected: ",
-          len(components), '\033[0m')
     # Returning the dictionary of masks
     return components
 
