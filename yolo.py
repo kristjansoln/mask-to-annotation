@@ -3,7 +3,7 @@ import json
 import numpy as np
 import matplotlib.pyplot as plt
 import os
-import annotation_helper as ah
+from tqdm import tqdm
 
 # Constants
 # Single objects
@@ -63,12 +63,13 @@ def save(im_dict):
         f.close()
 
     # saving the category in a text file
-    labels_file_path = os.path.join(
-        "./"+im_dict['directory']+"/"+im_dict['file_name'], 'labels.txt')
-    with open(labels_file_path, 'w') as f:
-        for count in range(len(im_dict['contours'])):
-            f.write(im_dict['category']+" "+str(count)+"\n")
-        f.close()
+    if im_dict['category'] is not None:
+        labels_file_path = os.path.join(
+            "./"+im_dict['directory']+"/"+im_dict['file_name'], 'labels.txt')
+        with open(labels_file_path, 'w') as f:
+            for count in range(len(im_dict['contours'])):
+                f.write(im_dict['category']+" "+str(count)+"\n")
+            f.close()
 
 
 def annotate(im, do_display=True, do_save=True, annotation_color=(0, 255, 0), object_configuration=SINGLE_OBJ, do_cvt=True):
@@ -96,3 +97,45 @@ def annotate(im, do_display=True, do_save=True, annotation_color=(0, 255, 0), ob
     print("-"*120)
 
     return im_dict
+
+
+def process_directory(mask_dir:str, annotations_dir:str, color:int = cv2.IMREAD_GRAYSCALE):
+    """
+    Iterates over the images in the directory and generates annotations for each file.
+
+    mask_dir: directory where segmentation masks are stored
+    annotations_dir: directory where generated text annotations will be stored. Typically also contains the images.
+    color: cv2 image read color. Default is grayscale.
+    """
+    # Verify that the mask directory exists
+    if not os.path.isdir(mask_dir):
+        raise FileNotFoundError(f"Mask directory '{mask_dir}' does not exist.")
+
+    # Ensure the output directory exists
+    os.makedirs(annotations_dir, exist_ok=True)
+
+    # Iterate over all files in the mask directory
+    for filename in tqdm(os.listdir(mask_dir)):
+        mask_path = os.path.join(mask_dir, filename)
+
+        # Skip directories or non-file entries
+        if not os.path.isfile(mask_path):
+            continue
+
+        # Read the mask image using OpenCV
+        try:
+            mask = cv2.imread(mask_path, color)
+            if mask is None:
+                raise Exception('Error while reading the file')
+
+            # Annotate the mask
+            #im=(img_id, img_name, mask_isolated, project_name, category, yolo_output_dir)
+            im=(None, filename, mask, None, None, annotations_dir)
+            annotate(im=im,
+                     do_display=False,
+                     do_save=True,
+                     object_configuration=MULTIPLE_OBJ)
+
+        except Exception as e:
+            # Log errors but continue processing
+            print(f"Failed to annotate '{mask_path}': {e}")
