@@ -92,13 +92,14 @@ def annotate(im, do_display=True, do_save=True, annotation_color=(0, 255, 0), ob
     return im_dict
 
 
-def process_directory(mask_dir:str, annotations_dir:str, color:int = cv2.IMREAD_GRAYSCALE):
+def process_directory(mask_dir:str, annotations_dir:str, color:int = cv2.IMREAD_GRAYSCALE, metadata_path:str = None):
     """
     Iterates over the images in the directory and generates annotations for each file.
 
     mask_dir: directory where segmentation masks are stored
     annotations_dir: directory where generated text annotations will be stored. Typically also contains the images.
     color: cv2 image read color. Default is grayscale.
+    metadata_path: optional metadata file path. Expects a JSON with id to label mappings.
     """
     # Verify that the mask directory exists
     if not os.path.isdir(mask_dir):
@@ -132,3 +133,17 @@ def process_directory(mask_dir:str, annotations_dir:str, color:int = cv2.IMREAD_
         except Exception as e:
             # Log errors but continue processing
             print(f"Failed to annotate '{mask_path}': {e}")
+
+    if metadata_path is not None and os.path.isfile(metadata_path):
+        with open(metadata_path, 'r') as f:
+            config = json.load(f)
+
+        labels = []
+        for id in range(len(config)):
+            labels.append(config[str(id)] + '\n')
+
+        # Generate a obj.names file
+        obj_names_path = annotations_dir + '/../obj.names'
+        with open(obj_names_path, 'w') as f:
+            f.writelines(labels)
+        
